@@ -291,21 +291,24 @@ async def messages(request: Request):
 
 ---
 
-## 8. 設定環境變數
+## 8. 建立並設定本地環境變數檔案 (.env)
 
-請將 `sk-你的-inner-medusa-key` 換成實際 API key。
-
-```bash
-export INNER_MEDUSA_API_KEY="sk-你的-inner-medusa-key"
-export INNER_MEDUSA_CHAT_URL="https://inner-medusa.genai.nchc.org.tw/v1/chat/completions"
-```
-
-確認環境變數：
+請在專案目錄下複製 `.env.example` 命名為 `.env`：
 
 ```bash
-echo $INNER_MEDUSA_API_KEY
-echo $INNER_MEDUSA_CHAT_URL
+cp .env.example .env
 ```
+
+接著編輯 `.env`，將佔位符替換為你的真實 API Key：
+
+```text
+INNER_MEDUSA_API_KEY="sk-你的-inner-medusa-key"
+PORTAL_API_KEY="sk-你的-portal-key"
+```
+
+> [!IMPORTANT]
+> 為了安全性，請勿將已設定金鑰的 `.env` 檔案上傳到 GitHub。`.gitignore` 檔案已預設將 `.env` 排除。
+
 
 ---
 
