@@ -145,11 +145,8 @@ INNER_MEDUSA_CHAT_URL = os.environ.get(
     "https://inner-medusa.genai.nchc.org.tw/v1/chat/completions",
 )
 
-SUPPORTED_MODELS = [
-    "MiniMax-M2.7",
-    "GLM-5.2",
-    "Thanos3.5-397B-A17B",
-]
+# 預設為 ["*"] 代表支援後端所有模型。若要限制特定模型，請在此列出模型名稱作為白名單。
+SUPPORTED_MODELS = ["*"]
 
 
 def extract_text_from_anthropic_content(content):
@@ -242,6 +239,47 @@ async def health():
 
 @app.get("/v1/models")
 async def models():
+    # 嘗試從後端動態獲取所有模型清單
+    models_url = INNER_MEDUSA_CHAT_URL.replace("/chat/completions", "/models")
+    headers = {}
+    if INNER_MEDUSA_API_KEY:
+        headers["Authorization"] = f"Bearer {INNER_MEDUSA_API_KEY}"
+
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(models_url, headers=headers)
+        if resp.status_code == 200:
+            data = resp.json()
+            backend_models = []
+            if isinstance(data, dict) and "data" in data:
+                backend_models = [m["id"] for m in data["data"] if isinstance(m, dict) and "id" in m]
+            elif isinstance(data, list):
+                backend_models = data
+
+            # 如果設定為 ["*"] 則返回所有模型，否則使用白名單過濾
+            if SUPPORTED_MODELS and "*" not in SUPPORTED_MODELS:
+                display_models = [m for m in backend_models if m in SUPPORTED_MODELS]
+            else:
+                display_models = backend_models
+
+            return {
+                "object": "list",
+                "data": [
+                    {
+                        "id": model,
+                        "object": "model",
+                        "created": int(time.time()),
+                        "owned_by": "inner-medusa",
+                    }
+                    for model in display_models
+                ],
+            }
+    except Exception:
+        # 當無法聯絡後端時，回退到靜態白名單
+        pass
+
+    # 靜態回退處理 (排除 "*")
+    fallback_models = [m for m in SUPPORTED_MODELS if m != "*"]
     return {
         "object": "list",
         "data": [
@@ -251,7 +289,7 @@ async def models():
                 "created": int(time.time()),
                 "owned_by": "inner-medusa",
             }
-            for model in SUPPORTED_MODELS
+            for model in fallback_models
         ],
     }
 
