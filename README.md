@@ -71,16 +71,17 @@ uv --version
 
 ## 4. 建立專案資料夾
 
-開啟 PowerShell，建立工作目錄：
+開啟 PowerShell，進入你的工作目錄（你可以直接使用目前複製/下載本專案的資料夾，或者手動建立）：
 
 ```powershell
-mkdir C:\claude-message-proxy
-cd C:\claude-message-proxy
+cd D:\antigravity\demo003   # 或是你的專案資料夾路徑
 ```
 
 ---
 
 ## 5. 建立 Python 虛擬環境
+
+在專案目錄下執行以下指令建立並啟用虛擬環境（如果你直接執行啟動腳本，腳本也會自動為你初始化此環境）：
 
 ```powershell
 uv venv
@@ -90,7 +91,7 @@ uv venv
 成功後，PowerShell 前方會出現類似：
 
 ```text
-(.venv) PS C:\claude-message-proxy>
+(.venv) PS D:\antigravity\demo003>
 ```
 
 ---

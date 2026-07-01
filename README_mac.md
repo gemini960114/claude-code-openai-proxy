@@ -71,16 +71,17 @@ uv --version
 
 ## 4. 建立專案資料夾
 
-開啟 終端機 (Terminal)，建立工作目錄：
+開啟終端機 (Terminal)，進入你的工作目錄（你可以直接使用目前複製/下載本專案的資料夾，或者手動建立）：
 
 ```bash
-mkdir -p ~/claude-message-proxy
-cd ~/claude-message-proxy
+cd ~/your-project-folder   # 或是你的專案資料夾路徑
 ```
 
 ---
 
 ## 5. 建立 Python 虛擬環境
+
+在專案目錄下執行以下指令建立並啟用虛擬環境（如果你直接執行啟動腳本，腳本也會自動為你初始化此環境）：
 
 ```bash
 uv venv
@@ -90,7 +91,7 @@ source .venv/bin/activate
 成功後，終端機提示字元前方會出現類似：
 
 ```text
-(.venv) user@macbook claude-message-proxy %
+(.venv) user@macbook your-project-folder %
 ```
 
 ---
