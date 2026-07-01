@@ -13,8 +13,8 @@ if (-not (Test-Path .venv)) {
 if (-not (Test-Path .env)) {
     Write-Host "Warning: .env file not found. Please copy .env.example to .env and fill in your API Key." -ForegroundColor Yellow
 }
-$sq = [char]39
-$dq = [char]34
+$sq = ([char]39).ToString()
+$dq = ([char]34).ToString()
 $env:INNER_MEDUSA_API_KEY = ""
 if (Test-Path .env) {
     Get-Content .env | ForEach-Object {
