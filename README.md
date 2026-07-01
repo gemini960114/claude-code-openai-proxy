@@ -1,0 +1,609 @@
+# Claude Code 外接 OpenAI-Compatible API：FastAPI Proxy 安裝手冊
+
+## 1. 目的說明
+
+本手冊說明如何在 Windows 本機架設一個 FastAPI Proxy，讓 Claude Code 可以透過 Anthropic-compatible `/v1/messages` 介面呼叫後端 OpenAI-compatible API。
+
+本次需求背景如下：
+
+```text
+Claude Code
+→ /v1/messages
+→ FastAPI Proxy
+→ inner-medusa /v1/chat/completions
+→ MiniMax-M2.7 / GLM-5.2 / Thanos3.5-397B-A17B
+```
+
+由於 Claude Code 會使用 `/v1/messages`，而後端 `inner-medusa` 已確認可正常使用 `/v1/chat/completions`，因此透過自製 FastAPI Proxy 將 Claude Code 的 Anthropic Messages API 格式轉換為 OpenAI Chat Completions 格式。
+
+先前測試中也確認 LiteLLM 的 `/v1/chat/completions` 可正常轉接，但 LiteLLM 的 `/v1/messages` 會轉往後端 `/v1/responses`，導致 nginx 403，因此本方案改用 FastAPI 明確轉接到 `/v1/chat/completions`。
+
+---
+
+## 2. 架構圖
+
+```text
+Claude Code
+  |
+  |  Anthropic-compatible API
+  |  POST http://127.0.0.1:5000/v1/messages
+  v
+FastAPI Proxy
+  |
+  |  OpenAI-compatible API
+  |  POST https://inner-medusa.genai.nchc.org.tw/v1/chat/completions
+  v
+inner-medusa API Gateway
+  |
+  v
+後端模型
+  - MiniMax-M2.7
+  - GLM-5.2
+  - Thanos3.5-397B-A17B
+```
+
+---
+
+## 3. 環境需求
+
+### 作業系統
+
+```text
+Windows 10 / Windows 11
+```
+
+### 必要工具
+
+```text
+uv
+Python 3.10+
+Claude Code
+PowerShell
+```
+
+確認 uv 是否可用：
+
+```powershell
+uv --version
+```
+
+---
+
+## 4. 建立專案資料夾
+
+開啟 PowerShell，建立工作目錄：
+
+```powershell
+mkdir C:\claude-message-proxy
+cd C:\claude-message-proxy
+```
+
+---
+
+## 5. 建立 Python 虛擬環境
+
+```powershell
+uv venv
+.\.venv\Scripts\activate
+```
+
+成功後，PowerShell 前方會出現類似：
+
+```text
+(.venv) PS C:\claude-message-proxy>
+```
+
+---
+
+## 6. 安裝必要套件
+
+```powershell
+uv pip install fastapi uvicorn httpx
+```
+
+確認套件已安裝：
+
+```powershell
+uv pip list
+```
+
+應可看到：
+
+```text
+fastapi
+uvicorn
+httpx
+```
+
+---
+
+## 7. 建立 FastAPI Proxy 程式
+
+在 `C:\claude-message-proxy` 目錄下建立檔案：
+
+```text
+proxy.py
+```
+
+內容如下：
+
+```python
+import os
+import time
+import uuid
+import httpx
+from fastapi import FastAPI, Request, HTTPException
+from fastapi.responses import JSONResponse
+
+app = FastAPI()
+
+INNER_MEDUSA_API_KEY = os.environ.get("INNER_MEDUSA_API_KEY", "")
+INNER_MEDUSA_CHAT_URL = os.environ.get(
+    "INNER_MEDUSA_CHAT_URL",
+    "https://inner-medusa.genai.nchc.org.tw/v1/chat/completions",
+)
+
+SUPPORTED_MODELS = [
+    "MiniMax-M2.7",
+    "GLM-5.2",
+    "Thanos3.5-397B-A17B",
+]
+
+
+def extract_text_from_anthropic_content(content):
+    if isinstance(content, str):
+        return content
+
+    if isinstance(content, list):
+        parts = []
+        for item in content:
+            if isinstance(item, dict):
+                if item.get("type") == "text":
+                    parts.append(item.get("text", ""))
+                elif "text" in item:
+                    parts.append(item.get("text", ""))
+        return "\n".join(parts)
+
+    return ""
+
+
+def anthropic_messages_to_openai(payload: dict) -> dict:
+    messages = []
+
+    system = payload.get("system")
+    if system:
+        if isinstance(system, str):
+            messages.append({"role": "system", "content": system})
+        elif isinstance(system, list):
+            system_text = extract_text_from_anthropic_content(system)
+            if system_text:
+                messages.append({"role": "system", "content": system_text})
+
+    for msg in payload.get("messages", []):
+        role = msg.get("role", "user")
+        content = extract_text_from_anthropic_content(msg.get("content", ""))
+
+        if role not in ["system", "user", "assistant"]:
+            role = "user"
+
+        messages.append(
+            {
+                "role": role,
+                "content": content,
+            }
+        )
+
+    return {
+        "model": payload.get("model", "MiniMax-M2.7"),
+        "messages": messages,
+        "max_tokens": payload.get("max_tokens", 1024),
+        "temperature": payload.get("temperature", 0.7),
+        "stream": False,
+    }
+
+
+def openai_to_anthropic(openai_resp: dict, model: str) -> dict:
+    choice = openai_resp.get("choices", [{}])[0]
+    message = choice.get("message", {})
+    content = message.get("content", "")
+
+    usage = openai_resp.get("usage", {})
+
+    return {
+        "id": f"msg_{uuid.uuid4().hex}",
+        "type": "message",
+        "role": "assistant",
+        "model": model,
+        "content": [
+            {
+                "type": "text",
+                "text": content or "",
+            }
+        ],
+        "stop_reason": "end_turn",
+        "stop_sequence": None,
+        "usage": {
+            "input_tokens": usage.get("prompt_tokens", 0),
+            "output_tokens": usage.get("completion_tokens", 0),
+        },
+    }
+
+
+@app.get("/health")
+async def health():
+    return {
+        "status": "ok",
+        "service": "claude-message-proxy",
+        "backend": INNER_MEDUSA_CHAT_URL,
+    }
+
+
+@app.get("/v1/models")
+async def models():
+    return {
+        "object": "list",
+        "data": [
+            {
+                "id": model,
+                "object": "model",
+                "created": int(time.time()),
+                "owned_by": "inner-medusa",
+            }
+            for model in SUPPORTED_MODELS
+        ],
+    }
+
+
+@app.post("/v1/messages")
+async def messages(request: Request):
+    if not INNER_MEDUSA_API_KEY:
+        raise HTTPException(
+            status_code=500,
+            detail="INNER_MEDUSA_API_KEY is not set",
+        )
+
+    payload = await request.json()
+    model = payload.get("model", "MiniMax-M2.7")
+
+    openai_payload = anthropic_messages_to_openai(payload)
+
+    headers = {
+        "Authorization": f"Bearer {INNER_MEDUSA_API_KEY}",
+        "Content-Type": "application/json",
+    }
+
+    async with httpx.AsyncClient(timeout=600) as client:
+        resp = await client.post(
+            INNER_MEDUSA_CHAT_URL,
+            headers=headers,
+            json=openai_payload,
+        )
+
+    if resp.status_code >= 400:
+        raise HTTPException(
+            status_code=resp.status_code,
+            detail=resp.text,
+        )
+
+    data = resp.json()
+    return JSONResponse(openai_to_anthropic(data, model))
+```
+
+---
+
+## 8. 設定環境變數
+
+請將 `sk-你的-inner-medusa-key` 換成實際 API key。
+
+```powershell
+$env:INNER_MEDUSA_API_KEY="sk-你的-inner-medusa-key"
+$env:INNER_MEDUSA_CHAT_URL="https://inner-medusa.genai.nchc.org.tw/v1/chat/completions"
+```
+
+確認環境變數：
+
+```powershell
+echo $env:INNER_MEDUSA_API_KEY
+echo $env:INNER_MEDUSA_CHAT_URL
+```
+
+---
+
+## 9. 啟動 FastAPI Proxy
+
+```powershell
+uvicorn proxy:app --host 127.0.0.1 --port 5000
+```
+
+成功後會看到類似：
+
+```text
+INFO:     Uvicorn running on http://127.0.0.1:5000
+```
+
+此 PowerShell 視窗需要保持開啟。
+
+---
+
+## 10. 測試 FastAPI Proxy
+
+開啟另一個 PowerShell 視窗，測試 health check：
+
+```powershell
+curl.exe -i "http://127.0.0.1:5000/health"
+```
+
+預期結果：
+
+```json
+{
+  "status": "ok",
+  "service": "claude-message-proxy",
+  "backend": "https://inner-medusa.genai.nchc.org.tw/v1/chat/completions"
+}
+```
+
+---
+
+## 11. 測試 `/v1/messages`
+
+```powershell
+curl.exe -i "http://127.0.0.1:5000/v1/messages" -H "x-api-key: anything" -H "Content-Type: application/json" -H "anthropic-version: 2023-06-01" --data-raw '{"model":"MiniMax-M2.7","max_tokens":128,"messages":[{"role":"user","content":"hello, reply with one short sentence"}]}'
+```
+
+若成功，應回傳類似 Anthropic Messages API 格式：
+
+```json
+{
+  "id": "msg_xxxxx",
+  "type": "message",
+  "role": "assistant",
+  "model": "MiniMax-M2.7",
+  "content": [
+    {
+      "type": "text",
+      "text": "Hello! How can I help you today?"
+    }
+  ],
+  "stop_reason": "end_turn",
+  "usage": {
+    "input_tokens": 0,
+    "output_tokens": 0
+  }
+}
+```
+
+---
+
+## 12. 設定 Claude Code
+
+編輯 Claude Code 的 `settings.json`。
+
+通常位置為：
+
+```text
+C:\Users\<你的使用者名稱>\.claude\settings.json
+```
+
+範例設定如下：
+
+```json
+{
+  "env": {
+    "ANTHROPIC_API_KEY": "anything",
+    "ANTHROPIC_BASE_URL": "http://127.0.0.1:5000",
+    "NO_PROXY": "localhost,127.0.0.1",
+    "no_proxy": "localhost,127.0.0.1",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "GLM-5.2",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME": "GLM-5.2",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "Thanos3.5-397B-A17B",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL_NAME": "Thanos3.5-397B-A17B",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "MiniMax-M2.7",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL_NAME": "MiniMax-M2.7",
+    "ANTHROPIC_MODEL": "GLM-5.2",
+    "CLAUDE_CODE_DISABLE_THINKING": "1",
+    "LITELLM_DROP_PARAMS": "true",
+    "ANTHROPIC_DISABLE_THINKING": "1",
+    "CLAUDE_CODE_ENABLE_TELEMETRY": "0",
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+    "CLAUDE_CODE_ATTRIBUTION_HEADER": "0"
+  },
+  "attribution": {
+    "commit": "",
+    "pr": ""
+  },
+  "model": "haiku",
+  "promptSuggestionEnabled": false,
+  "plansDirectory": "./plans",
+  "prefersReducedMotion": true,
+  "theme": "dark",
+  "terminalProgressBarEnabled": false
+}
+```
+
+---
+
+## 13. 啟動 Claude Code 測試
+
+確認 FastAPI Proxy 還在執行後，重新開啟 PowerShell，執行：
+
+```powershell
+claude --debug
+```
+
+輸入：
+
+```text
+hi
+```
+
+若成功，Claude Code 會透過：
+
+```text
+http://127.0.0.1:5000/v1/messages
+```
+
+再由 FastAPI Proxy 轉送到：
+
+```text
+https://inner-medusa.genai.nchc.org.tw/v1/chat/completions
+```
+
+---
+
+## 14. 常見問題排查
+
+### 問題 1：Claude Code 顯示 Please run /login
+
+請確認 `settings.json` 有正確設定：
+
+```json
+"ANTHROPIC_BASE_URL": "http://127.0.0.1:5000"
+```
+
+並確認 FastAPI Proxy 已啟動。
+
+---
+
+### 問題 2：FastAPI 回 500，顯示 INNER_MEDUSA_API_KEY is not set
+
+代表沒有設定 API key。
+
+請重新設定：
+
+```powershell
+$env:INNER_MEDUSA_API_KEY="sk-你的-inner-medusa-key"
+```
+
+再重新啟動：
+
+```powershell
+uvicorn proxy:app --host 127.0.0.1 --port 5000
+```
+
+---
+
+### 問題 3：FastAPI 回 403 Forbidden
+
+若錯誤內容包含 nginx 403，代表 FastAPI Proxy 轉送到 inner-medusa 時被後端 nginx 擋掉。
+
+請確認後端 endpoint 是：
+
+```text
+https://inner-medusa.genai.nchc.org.tw/v1/chat/completions
+```
+
+不要設定成：
+
+```text
+https://inner-medusa.genai.nchc.org.tw/v1/responses
+```
+
+因為目前已知 `/v1/responses` 會被 nginx 回 403。
+
+---
+
+### 問題 4：PowerShell curl 發生 Invalid JSON payload
+
+建議使用單引號包住 JSON：
+
+```powershell
+curl.exe -i "http://127.0.0.1:5000/v1/messages" -H "x-api-key: anything" -H "Content-Type: application/json" -H "anthropic-version: 2023-06-01" --data-raw '{"model":"MiniMax-M2.7","max_tokens":128,"messages":[{"role":"user","content":"hello"}]}'
+```
+
+避免使用：
+
+```powershell
+-d "{""model"":""MiniMax-M2.7""}"
+```
+
+此寫法容易造成 JSON 被 PowerShell 解析錯誤。
+
+---
+
+## 15. 可選：建立啟動腳本
+
+本專案提供兩個啟動腳本以應對不同的後端環境：
+
+### 15.1 Inner-Medusa 後端啟動腳本 (`start_proxy_inner.ps1`)
+```powershell
+cd C:\claude-message-proxy
+.\.venv\Scripts\activate
+
+$env:INNER_MEDUSA_API_KEY="sk-你的-inner-medusa-key"
+$env:INNER_MEDUSA_CHAT_URL="https://inner-medusa.genai.nchc.org.tw/v1/chat/completions"
+
+uvicorn proxy:app --host 127.0.0.1 --port 5000
+```
+
+### 15.2 Portal 後端啟動腳本 (`start_proxy_portal.ps1`)
+```powershell
+cd C:\claude-message-proxy
+.\.venv\Scripts\activate
+
+$env:INNER_MEDUSA_API_KEY="sk-你的-portal-key"
+$env:INNER_MEDUSA_CHAT_URL="https://portal.genai.nchc.org.tw/api/v1/chat/completions"
+
+uvicorn proxy:app --host 127.0.0.1 --port 5000
+```
+
+執行對應的腳本即可啟動服務：
+```powershell
+.\start_proxy_inner.ps1
+# 或
+.\start_proxy_portal.ps1
+```
+
+---
+
+## 16. 安全建議
+
+若只在本機使用，建議維持：
+
+```text
+127.0.0.1:5000
+```
+
+不要開成：
+
+```text
+0.0.0.0:5000
+```
+
+避免外部電腦直接連入。
+
+若未來要提供多人或其他機器使用，建議加上：
+
+```text
+nginx HTTPS
+API key 驗證
+IP allowlist
+rate limit
+access log
+```
+
+---
+
+## 17. 完整啟動流程摘要
+
+每次使用前（以 Inner-Medusa 為例）：
+
+```powershell
+cd C:\claude-message-proxy
+.\.venv\Scripts\activate
+$env:INNER_MEDUSA_API_KEY="sk-你的-inner-medusa-key"
+$env:INNER_MEDUSA_CHAT_URL="https://inner-medusa.genai.nchc.org.tw/v1/chat/completions"
+uvicorn proxy:app --host 127.0.0.1 --port 5000
+```
+
+另一個 PowerShell 啟動 Claude Code：
+
+```powershell
+claude --debug
+```
+
+---
+
+## 18. 結論
+
+此 FastAPI Proxy 方案可讓 Claude Code 使用本機 `/v1/messages`，再由 Proxy 轉換為 OpenAI-compatible `/v1/chat/completions`，成功避開 VPN2 對 `/v1/messages` 的限制，以及 LiteLLM `/v1/messages` 轉往 `/v1/responses` 所造成的 403 問題。
