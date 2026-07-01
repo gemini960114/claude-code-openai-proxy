@@ -69,19 +69,20 @@ uv --version
 
 ---
 
-## 4. 建立專案資料夾
+## 4. 複製專案與進入專案目錄
 
-開啟 PowerShell，進入你的工作目錄（你可以直接使用目前複製/下載本專案的資料夾，或者手動建立）：
+開啟 PowerShell，將此專案複製到你想要的位置，並進入該專案目錄：
 
 ```powershell
-cd D:\antigravity\demo003   # 或是你的專案資料夾路徑
+git clone https://github.com/gemini960114/claude-code-openai-proxy.git
+cd claude-code-openai-proxy
 ```
 
 ---
 
 ## 5. 建立 Python 虛擬環境
 
-在專案目錄下執行以下指令建立並啟用虛擬環境（如果你直接執行啟動腳本，腳本也會自動為你初始化此環境）：
+在專案目錄下執行以下指令建立並啟用虛擬環境（如果你直接執行啟動腳本，腳本也會自動為你初始化此環境與套件）：
 
 ```powershell
 uv venv
@@ -91,7 +92,7 @@ uv venv
 成功後，PowerShell 前方會出現類似：
 
 ```text
-(.venv) PS D:\antigravity\demo003>
+(.venv) PS C:\...\claude-code-openai-proxy>
 ```
 
 ---
