@@ -1,6 +1,14 @@
 # cd to the script directory
-cd C:\claude-message-proxy
-.\.venv\Scripts\activate
+cd $PSScriptRoot
+
+if (-not (Test-Path .venv)) {
+    Write-Host "Warning: Local virtual environment (.venv) not found. Bootstrapping with uv..." -ForegroundColor Cyan
+    uv venv
+    .\.venv\Scripts\activate
+    uv pip install fastapi uvicorn httpx
+} else {
+    .\.venv\Scripts\activate
+}
 
 if (-not (Test-Path .env)) {
     Write-Host "Warning: .env file not found. Please copy .env.example to .env and fill in your API Key." -ForegroundColor Yellow

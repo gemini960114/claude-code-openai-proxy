@@ -1,6 +1,15 @@
 #!/bin/bash
-cd ~/claude-message-proxy
-source .venv/bin/activate
+cd "$(dirname "$0")"
+
+if [ ! -d .venv ]; then
+    echo "Warning: Local virtual environment (.venv) not found. Bootstrapping with uv..."
+    uv venv
+    source .venv/bin/activate
+    uv pip install fastapi uvicorn httpx
+else
+    source .venv/bin/activate
+fi
+
 
 if [ ! -f .env ]; then
     echo "Warning: .env file not found. Please copy .env.example to .env and fill in your API Key."
