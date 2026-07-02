@@ -391,7 +391,7 @@ curl.exe -i "http://127.0.0.1:5000/health"
 ## 11. 測試 `/v1/messages`
 
 ```powershell
-curl.exe -i "http://127.0.0.1:5000/v1/messages" -H "x-api-key: anything" -H "Content-Type: application/json" -H "anthropic-version: 2023-06-01" --data-raw '{"model":"MiniMax-M2.7","max_tokens":128,"messages":[{"role":"user","content":"hello, reply with one short sentence"}]}'
+curl.exe -i "http://127.0.0.1:5000/v1/messages" -H "x-api-key: anything" -H "Content-Type: application/json" -H "anthropic-version: 2023-06-01" --data-raw '{"model":"gemma-4-31B-it","max_tokens":128,"messages":[{"role":"user","content":"hello, reply with one short sentence"}]}'
 ```
 
 若成功，應回傳類似 Anthropic Messages API 格式：
@@ -401,7 +401,7 @@ curl.exe -i "http://127.0.0.1:5000/v1/messages" -H "x-api-key: anything" -H "Con
   "id": "msg_xxxxx",
   "type": "message",
   "role": "assistant",
-  "model": "MiniMax-M2.7",
+  "model": "gemma-4-31B-it",
   "content": [
     {
       "type": "text",
@@ -551,13 +551,13 @@ https://inner-medusa.genai.nchc.org.tw/v1/responses
 建議使用單引號包住 JSON：
 
 ```powershell
-curl.exe -i "http://127.0.0.1:5000/v1/messages" -H "x-api-key: anything" -H "Content-Type: application/json" -H "anthropic-version: 2023-06-01" --data-raw '{"model":"MiniMax-M2.7","max_tokens":128,"messages":[{"role":"user","content":"hello"}]}'
+curl.exe -i "http://127.0.0.1:5000/v1/messages" -H "x-api-key: anything" -H "Content-Type: application/json" -H "anthropic-version: 2023-06-01" --data-raw '{"model":"gemma-4-31B-it","max_tokens":128,"messages":[{"role":"user","content":"hello"}]}'
 ```
 
 避免使用：
 
 ```powershell
--d "{""model"":""MiniMax-M2.7""}"
+-d "{""model"":""gemma-4-31B-it""}"
 ```
 
 此寫法容易造成 JSON 被 PowerShell 解析錯誤。
@@ -706,7 +706,7 @@ access log
      ```
    - **測試 API 訊息對話**：
      ```powershell
-     curl.exe -i "http://127.0.0.1:5000/v1/messages" -H "x-api-key: anything" -H "Content-Type: application/json" -H "anthropic-version: 2023-06-01" --data-raw '{"model":"MiniMax-M2.7","max_tokens":128,"messages":[{"role":"user","content":"hello"}]}'
+     curl.exe -i "http://127.0.0.1:5000/v1/messages" -H "x-api-key: anything" -H "Content-Type: application/json" -H "anthropic-version: 2023-06-01" --data-raw '{"model":"gemma-4-31B-it","max_tokens":128,"messages":[{"role":"user","content":"hello"}]}'
      ```
 
 ### 第四步：啟動 Claude Code 進行工作

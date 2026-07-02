@@ -395,7 +395,7 @@ curl -i "http://127.0.0.1:5000/v1/messages" \
   -H "x-api-key: anything" \
   -H "Content-Type: application/json" \
   -H "anthropic-version: 2023-06-01" \
-  --data-raw '{"model":"MiniMax-M2.7","max_tokens":128,"messages":[{"role":"user","content":"hello, reply with one short sentence"}]}'
+  --data-raw '{"model":"gemma-4-31B-it","max_tokens":128,"messages":[{"role":"user","content":"hello, reply with one short sentence"}]}'
 ```
 
 若成功，應回傳類似 Anthropic Messages API 格式：
@@ -405,7 +405,7 @@ curl -i "http://127.0.0.1:5000/v1/messages" \
   "id": "msg_xxxxx",
   "type": "message",
   "role": "assistant",
-  "model": "MiniMax-M2.7",
+  "model": "gemma-4-31B-it",
   "content": [
     {
       "type": "text",
@@ -668,7 +668,7 @@ chmod +x start_proxy_inner.sh start_proxy_portal.sh
      ```
    - **測試 API 訊息對話**：
      ```bash
-     curl -i "http://127.0.0.1:5000/v1/messages" -H "x-api-key: anything" -H "Content-Type: application/json" -H "anthropic-version: 2023-06-01" --data-raw '{"model":"MiniMax-M2.7","max_tokens":128,"messages":[{"role":"user","content":"hello"}]}'
+     curl -i "http://127.0.0.1:5000/v1/messages" -H "x-api-key: anything" -H "Content-Type: application/json" -H "anthropic-version: 2023-06-01" --data-raw '{"model":"gemma-4-31B-it","max_tokens":128,"messages":[{"role":"user","content":"hello"}]}'
      ```
 
 ### 第四步：啟動 Claude Code 進行工作
