@@ -681,4 +681,4 @@ chmod +x start_proxy_inner.sh start_proxy_portal.sh
 
 ## 18. 結論
 
-此 FastAPI Proxy 方案可讓 Claude Code 使用本機 `/v1/messages`，再由 Proxy 轉換為 OpenAI-compatible `/v1/chat/completions`，成功避開對 `/v1/messages` 的限制。
+此 FastAPI Proxy 方案可讓 Claude Code 使用本機 `/v1/messages`，再由 Proxy 轉換為 OpenAI-compatible `/v1/chat/completions`。

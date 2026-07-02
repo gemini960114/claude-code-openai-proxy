@@ -719,4 +719,4 @@ access log
 
 ## 18. 結論
 
-此 FastAPI Proxy 方案可讓 Claude Code 使用本機 `/v1/messages`，再由 Proxy 轉換為 OpenAI-compatible `/v1/chat/completions`，成功避開 VPN2 對 `/v1/messages` 的限制，以及 LiteLLM `/v1/messages` 轉往 `/v1/responses` 所造成的 403 問題。
+此 FastAPI Proxy 方案可讓 Claude Code 使用本機 `/v1/messages`，再由 Proxy 轉換為 OpenAI-compatible `/v1/chat/completions`。
