@@ -428,8 +428,9 @@ curl.exe -i "http://127.0.0.1:5000/v1/messages" -H "x-api-key: anything" -H "Con
 C:\Users\<你的使用者名稱>\.claude\settings.json
 ```
 
-範例設定如下：
+範例設定如下（請依據你目前使用的後端選擇對應的設定複製到 `settings.json` 中）：
 
+### 12.1 Inner-Medusa 後端設定
 ```json
 {
   "env": {
@@ -456,6 +457,41 @@ C:\Users\<你的使用者名稱>\.claude\settings.json
     "pr": ""
   },
   "model": "haiku",
+  "promptSuggestionEnabled": false,
+  "plansDirectory": "./plans",
+  "prefersReducedMotion": true,
+  "theme": "dark",
+  "terminalProgressBarEnabled": false
+}
+```
+
+### 12.2 Portal 後端設定
+```json
+{
+  "env": {
+    "ANTHROPIC_API_KEY": "anything",
+    "ANTHROPIC_BASE_URL": "http://127.0.0.1:5000",
+    "NO_PROXY": "localhost,127.0.0.1",
+    "no_proxy": "localhost,127.0.0.1",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "gemma-4-31B-it",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME": "gemma-4-31B-it",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "NVIDIA-Nemotron-3-Ultra-550B-A55B",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL_NAME": "NVIDIA-Nemotron-3-Ultra-550B-A55B",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "Mistral-Large-3-675B-Instruct-2512",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL_NAME": "Mistral-Large-3-675B-Instruct-2512",
+    "ANTHROPIC_MODEL": "NVIDIA-Nemotron-3-Ultra-550B-A55B",
+    "CLAUDE_CODE_DISABLE_THINKING": "1",
+    "LITELLM_DROP_PARAMS": "true",
+    "ANTHROPIC_DISABLE_THINKING": "1",
+    "CLAUDE_CODE_ENABLE_TELEMETRY": "0",
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+    "CLAUDE_CODE_ATTRIBUTION_HEADER": "0"
+  },
+  "attribution": {
+    "commit": "",
+    "pr": ""
+  },
+  "model": "opus",
   "promptSuggestionEnabled": false,
   "plansDirectory": "./plans",
   "prefersReducedMotion": true,
