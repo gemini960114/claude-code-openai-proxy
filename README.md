@@ -139,10 +139,10 @@ from fastapi.responses import JSONResponse
 
 app = FastAPI()
 
-INNER_MEDUSA_API_KEY = os.environ.get("INNER_MEDUSA_API_KEY", "")
-INNER_MEDUSA_CHAT_URL = os.environ.get(
-    "INNER_MEDUSA_CHAT_URL",
-    "https://inner-medusa.genai.nchc.org.tw/v1/chat/completions",
+BACKEND_API_KEY = os.environ.get("BACKEND_API_KEY", "")
+BACKEND_CHAT_URL = os.environ.get(
+    "BACKEND_CHAT_URL",
+    "https://portal.genai.nchc.org.tw/api/v1/chat/completions",
 )
 
 # 預設為 ["*"] 代表支援後端所有模型。若要限制特定模型，請在此列出模型名稱作為白名單。
@@ -233,17 +233,17 @@ async def health():
     return {
         "status": "ok",
         "service": "claude-message-proxy",
-        "backend": INNER_MEDUSA_CHAT_URL,
+        "backend": BACKEND_CHAT_URL,
     }
 
 
 @app.get("/v1/models")
 async def models():
     # 嘗試從後端動態獲取所有模型清單
-    models_url = INNER_MEDUSA_CHAT_URL.replace("/chat/completions", "/models")
+    models_url = BACKEND_CHAT_URL.replace("/chat/completions", "/models")
     headers = {}
-    if INNER_MEDUSA_API_KEY:
-        headers["Authorization"] = f"Bearer {INNER_MEDUSA_API_KEY}"
+    if BACKEND_API_KEY:
+        headers["Authorization"] = f"Bearer {BACKEND_API_KEY}"
 
     try:
         async with httpx.AsyncClient(timeout=10) as client:
@@ -296,10 +296,10 @@ async def models():
 
 @app.post("/v1/messages")
 async def messages(request: Request):
-    if not INNER_MEDUSA_API_KEY:
+    if not BACKEND_API_KEY:
         raise HTTPException(
             status_code=500,
-            detail="INNER_MEDUSA_API_KEY is not set",
+            detail="BACKEND_API_KEY is not set",
         )
 
     payload = await request.json()
@@ -308,13 +308,13 @@ async def messages(request: Request):
     openai_payload = anthropic_messages_to_openai(payload)
 
     headers = {
-        "Authorization": f"Bearer {INNER_MEDUSA_API_KEY}",
+        "Authorization": f"Bearer {BACKEND_API_KEY}",
         "Content-Type": "application/json",
     }
 
     async with httpx.AsyncClient(timeout=600) as client:
         resp = await client.post(
-            INNER_MEDUSA_CHAT_URL,
+            BACKEND_CHAT_URL,
             headers=headers,
             json=openai_payload,
         )
@@ -382,7 +382,7 @@ curl.exe -i "http://127.0.0.1:5000/health"
 {
   "status": "ok",
   "service": "claude-message-proxy",
-  "backend": "https://inner-medusa.genai.nchc.org.tw/v1/chat/completions"
+  "backend": "https://portal.genai.nchc.org.tw/api/v1/chat/completions"
 }
 ```
 
@@ -508,14 +508,14 @@ https://inner-medusa.genai.nchc.org.tw/v1/chat/completions
 
 ---
 
-### 問題 2：FastAPI 回 500，顯示 INNER_MEDUSA_API_KEY is not set
+### 問題 2：FastAPI 回 500，顯示 BACKEND_API_KEY is not set
 
 代表沒有設定 API key。
 
 請重新設定：
 
 ```powershell
-$env:INNER_MEDUSA_API_KEY="sk-你的-inner-medusa-key"
+$env:BACKEND_API_KEY="sk-你的-key"
 ```
 
 再重新啟動：
@@ -566,26 +566,72 @@ curl.exe -i "http://127.0.0.1:5000/v1/messages" -H "x-api-key: anything" -H "Con
 
 ## 15. 可選：建立啟動腳本
 
-本專案提供兩個啟動腳本以應對不同的後端環境：
+本專案提供兩個啟動腳本以應對不同的後端環境（腳本會自動檢測本地虛擬環境，若不存在會自動使用 `uv` 建立並安裝套件）：
 
 ### 15.1 Inner-Medusa 後端啟動腳本 (`start_proxy_inner.ps1`)
 ```powershell
-cd C:\claude-message-proxy
-.\.venv\Scripts\activate
+# cd to the script directory
+cd $PSScriptRoot
 
-$env:INNER_MEDUSA_API_KEY="sk-你的-inner-medusa-key"
-$env:INNER_MEDUSA_CHAT_URL="https://inner-medusa.genai.nchc.org.tw/v1/chat/completions"
+if (-not (Test-Path .venv)) {
+    Write-Host "Warning: Local virtual environment (.venv) not found. Bootstrapping with uv..." -ForegroundColor Cyan
+    uv venv
+    .\.venv\Scripts\activate
+    uv pip install fastapi uvicorn httpx
+} else {
+    .\.venv\Scripts\activate
+}
+
+if (-not (Test-Path .env)) {
+    Write-Host "Warning: .env file not found. Please copy .env.example to .env and fill in your API Key." -ForegroundColor Yellow
+}
+$sq = ([char]39).ToString()
+$dq = ([char]34).ToString()
+$env:BACKEND_API_KEY = ""
+if (Test-Path .env) {
+    Get-Content .env | ForEach-Object {
+        $line = $_.Trim()
+        if ($line -like "INNER_MEDUSA_API_KEY=*") {
+            $val = $line.Split('=', 2)[1].Trim()
+            $env:BACKEND_API_KEY = $val.Replace($sq, "").Replace($dq, "")
+        }
+    }
+}
+$env:BACKEND_CHAT_URL="https://inner-medusa.genai.nchc.org.tw/v1/chat/completions"
 
 uvicorn proxy:app --host 127.0.0.1 --port 5000
 ```
 
 ### 15.2 Portal 後端啟動腳本 (`start_proxy_portal.ps1`)
 ```powershell
-cd C:\claude-message-proxy
-.\.venv\Scripts\activate
+# cd to the script directory
+cd $PSScriptRoot
 
-$env:INNER_MEDUSA_API_KEY="sk-你的-portal-key"
-$env:INNER_MEDUSA_CHAT_URL="https://portal.genai.nchc.org.tw/api/v1/chat/completions"
+if (-not (Test-Path .venv)) {
+    Write-Host "Warning: Local virtual environment (.venv) not found. Bootstrapping with uv..." -ForegroundColor Cyan
+    uv venv
+    .\.venv\Scripts\activate
+    uv pip install fastapi uvicorn httpx
+} else {
+    .\.venv\Scripts\activate
+}
+
+if (-not (Test-Path .env)) {
+    Write-Host "Warning: .env file not found. Please copy .env.example to .env and fill in your API Key." -ForegroundColor Yellow
+}
+$sq = ([char]39).ToString()
+$dq = ([char]34).ToString()
+$env:BACKEND_API_KEY = ""
+if (Test-Path .env) {
+    Get-Content .env | ForEach-Object {
+        $line = $_.Trim()
+        if ($line -like "PORTAL_API_KEY=*") {
+            $val = $line.Split('=', 2)[1].Trim()
+            $env:BACKEND_API_KEY = $val.Replace($sq, "").Replace($dq, "")
+        }
+    }
+}
+$env:BACKEND_CHAT_URL="https://portal.genai.nchc.org.tw/api/v1/chat/completions"
 
 uvicorn proxy:app --host 127.0.0.1 --port 5000
 ```
@@ -629,15 +675,13 @@ access log
 
 ## 17. 完整啟動流程摘要
 
-每次使用前（以 Inner-Medusa 為例）：
+每次使用前：
 
-```powershell
-cd C:\claude-message-proxy
-.\.venv\Scripts\activate
-$env:INNER_MEDUSA_API_KEY="sk-你的-inner-medusa-key"
-$env:INNER_MEDUSA_CHAT_URL="https://inner-medusa.genai.nchc.org.tw/v1/chat/completions"
-uvicorn proxy:app --host 127.0.0.1 --port 5000
-```
+1. 開啟 PowerShell，進入專案目錄。
+2. 執行對應的啟動腳本（腳本會自動處理虛擬環境與金鑰）：
+   ```powershell
+   .\start_proxy_portal.ps1   # 或是 .\start_proxy_inner.ps1
+   ```
 
 另一個 PowerShell 啟動 Claude Code：
 

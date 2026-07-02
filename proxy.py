@@ -7,10 +7,10 @@ from fastapi.responses import JSONResponse
 
 app = FastAPI()
 
-INNER_MEDUSA_API_KEY = os.environ.get("INNER_MEDUSA_API_KEY", "")
-INNER_MEDUSA_CHAT_URL = os.environ.get(
-    "INNER_MEDUSA_CHAT_URL",
-    "https://inner-medusa.genai.nchc.org.tw/v1/chat/completions",
+BACKEND_API_KEY = os.environ.get("BACKEND_API_KEY", "")
+BACKEND_CHAT_URL = os.environ.get(
+    "BACKEND_CHAT_URL",
+    "https://portal.genai.nchc.org.tw/api/v1/chat/completions",
 )
 
 # 預設為 ["*"] 代表支援後端所有模型。若要限制特定模型，請在此列出模型名稱作為白名單。
@@ -101,17 +101,17 @@ async def health():
     return {
         "status": "ok",
         "service": "claude-message-proxy",
-        "backend": INNER_MEDUSA_CHAT_URL,
+        "backend": BACKEND_CHAT_URL,
     }
 
 
 @app.get("/v1/models")
 async def models():
     # 嘗試從後端動態獲取所有模型清單
-    models_url = INNER_MEDUSA_CHAT_URL.replace("/chat/completions", "/models")
+    models_url = BACKEND_CHAT_URL.replace("/chat/completions", "/models")
     headers = {}
-    if INNER_MEDUSA_API_KEY:
-        headers["Authorization"] = f"Bearer {INNER_MEDUSA_API_KEY}"
+    if BACKEND_API_KEY:
+        headers["Authorization"] = f"Bearer {BACKEND_API_KEY}"
 
     try:
         async with httpx.AsyncClient(timeout=10) as client:
@@ -164,10 +164,10 @@ async def models():
 
 @app.post("/v1/messages")
 async def messages(request: Request):
-    if not INNER_MEDUSA_API_KEY:
+    if not BACKEND_API_KEY:
         raise HTTPException(
             status_code=500,
-            detail="INNER_MEDUSA_API_KEY is not set",
+            detail="BACKEND_API_KEY is not set",
         )
 
     payload = await request.json()
@@ -176,13 +176,13 @@ async def messages(request: Request):
     openai_payload = anthropic_messages_to_openai(payload)
 
     headers = {
-        "Authorization": f"Bearer {INNER_MEDUSA_API_KEY}",
+        "Authorization": f"Bearer {BACKEND_API_KEY}",
         "Content-Type": "application/json",
     }
 
     async with httpx.AsyncClient(timeout=600) as client:
         resp = await client.post(
-            INNER_MEDUSA_CHAT_URL,
+            BACKEND_CHAT_URL,
             headers=headers,
             json=openai_payload,
         )

@@ -9,7 +9,7 @@
 當你想讓外部工具（例如 Open WebUI、Claude Code 或其他客戶端）能夠存取後端 API 閘道器所支援的**所有模型**時，請在 `proxy.py` 中保持預設的萬用字元設定：
 
 ```python
-# C:\claude-message-proxy\proxy.py (約第 17 行)
+# 專案目錄下的 proxy.py (約第 17 行)
 SUPPORTED_MODELS = ["*"]
 ```
 
@@ -24,7 +24,7 @@ SUPPORTED_MODELS = ["*"]
 
 ### 範例：只限制開放 Nemotron 與 MiniMax 兩台模型
 ```python
-# C:\claude-message-proxy\proxy.py (約第 17 行)
+# 專案目錄下的 proxy.py (約第 17 行)
 SUPPORTED_MODELS = [
     "NVIDIA-Nemotron-3-Ultra-550B-A55B",
     "MiniMax-M2.7"
@@ -62,6 +62,6 @@ SUPPORTED_MODELS = [
 
 ## 4. 生效方式
 
-修改 `C:\claude-message-proxy\proxy.py` 中的 `SUPPORTED_MODELS` 內容並存檔後：
+修改專案目錄下的 `proxy.py` 中的 `SUPPORTED_MODELS` 內容並存檔後：
 1. **不需重新安裝**。
 2. 如果你的 Uvicorn 是以開發模式運行（一般會自動偵測檔案變更重啟），服務會自動加載新設定；若是手動關閉，請重新執行 `start_proxy_inner.ps1` 或 `start_proxy_portal.ps1` 即可生效。
