@@ -673,21 +673,47 @@ access log
 
 ---
 
-## 17. 完整啟動流程摘要
+## 17. 完整啟動與快速上手流程摘要
 
-每次使用前：
+以下是全新部署或重新啟動的完整極速上手指南：
 
-1. 開啟 PowerShell，進入專案目錄。
-2. 執行對應的啟動腳本（腳本會自動處理虛擬環境與金鑰）：
+### 第一步：複製專案與準備環境
+1. **複製 GitHub 儲存庫**：
    ```powershell
-   .\start_proxy_portal.ps1   # 或是 .\start_proxy_inner.ps1
+   git clone https://github.com/gemini960114/claude-code-openai-proxy.git
+   cd claude-code-openai-proxy
    ```
+2. **複製並設定 `.env` 金鑰檔案**：
+   ```powershell
+   cp .env.example .env
+   ```
+   *請使用文字編輯器打開新生成的 `.env` 檔案，填入你的實際金鑰（`INNER_MEDUSA_API_KEY` 或 `PORTAL_API_KEY`）。*
 
-另一個 PowerShell 啟動 Claude Code：
+### 第二步：執行啟動腳本
+3. **執行專案目錄下的啟動腳本**（腳本會自動檢測並初始化虛擬環境及套件）：
+   ```powershell
+   .\start_proxy_portal.ps1   # 啟動 Portal 閘道服務
+   # 或
+   .\start_proxy_inner.ps1    # 啟動 Inner-Medusa 服務
+   ```
+   *看到 `Uvicorn running on http://127.0.0.1:5000` 表示啟動成功，保持該視窗不要關閉。*
 
-```powershell
-claude --debug
-```
+### 第三步：一般對話測試 (Curl 檢驗)
+4. **另開一個 PowerShell 視窗進行測試**：
+   - **測試健康度檢查**：
+     ```powershell
+     curl.exe -i "http://127.0.0.1:5000/health"
+     ```
+   - **測試 API 訊息對話**：
+     ```powershell
+     curl.exe -i "http://127.0.0.1:5000/v1/messages" -H "x-api-key: anything" -H "Content-Type: application/json" -H "anthropic-version: 2023-06-01" --data-raw '{"model":"MiniMax-M2.7","max_tokens":128,"messages":[{"role":"user","content":"hello"}]}'
+     ```
+
+### 第四步：啟動 Claude Code 進行工作
+5. **在另一個 PowerShell 視窗中啟動 Claude**：
+   ```powershell
+   claude --debug
+   ```
 
 ---
 
