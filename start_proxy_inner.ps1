@@ -26,5 +26,6 @@ if (Test-Path .env) {
     }
 }
 $env:BACKEND_CHAT_URL="https://inner-medusa.genai.nchc.org.tw/v1/chat/completions"
+$env:MODEL_CONFIG_PATH=(Join-Path $PSScriptRoot "models_inner.json")
 
 uvicorn proxy:app --host 127.0.0.1 --port 5000

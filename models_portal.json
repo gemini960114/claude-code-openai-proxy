@@ -1,0 +1,42 @@
+{
+  "default_model": "gemma-4-31B-it",
+  "models": [
+    {
+      "id": "gemma-4-31B-it",
+      "backend_model": "gemma-4-31B-it",
+      "display_name": "gemma-4-31B-it",
+      "aliases": [
+        "haiku",
+        "claude-haiku-4-5",
+        "gemma"
+      ]
+    },
+    {
+      "id": "NVIDIA-Nemotron-3-Ultra-550B-A55B",
+      "backend_model": "NVIDIA-Nemotron-3-Ultra-550B-A55B",
+      "display_name": "NVIDIA-Nemotron-3-Ultra-550B-A55B",
+      "aliases": [
+        "sonnet",
+        "claude-sonnet-4-6"
+      ]
+    },
+    {
+      "id": "Mistral-Large-3-675B-Instruct-2512",
+      "backend_model": "Mistral-Large-3-675B-Instruct-2512",
+      "display_name": "Mistral-Large-3-675B-Instruct-2512",
+      "aliases": [
+        "opus",
+        "claude-opus-4-7"
+      ]
+    },
+    {
+      "id": "NVIDIA-Nemotron-3-Super-120B-A12B",
+      "backend_model": "NVIDIA-Nemotron-3-Super-120B-A12B",
+      "display_name": "NVIDIA-Nemotron-3-Super-120B-A12B",
+      "aliases": [
+        "nemotron-super",
+        "super"
+      ]
+    }
+  ]
+}

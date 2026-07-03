@@ -1,8 +1,12 @@
+import json
 import os
+import re
 import time
 import uuid
+from pathlib import Path
+
 import httpx
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 app = FastAPI()
@@ -12,9 +16,42 @@ BACKEND_CHAT_URL = os.environ.get(
     "BACKEND_CHAT_URL",
     "https://portal.genai.nchc.org.tw/api/v1/chat/completions",
 )
+MODEL_CONFIG_PATH = Path(
+    os.environ.get("MODEL_CONFIG_PATH", Path(__file__).with_name("models_inner.json"))
+)
 
-# 預設為 ["*"] 代表支援後端所有模型。若要限制特定模型，請在此列出模型名稱作為白名單。
-SUPPORTED_MODELS = ["*"]
+def load_model_config() -> dict:
+    if not MODEL_CONFIG_PATH.exists():
+        raise RuntimeError(f"model config file not found: {MODEL_CONFIG_PATH}")
+
+    with MODEL_CONFIG_PATH.open("r", encoding="utf-8") as f:
+        config = json.load(f)
+
+    if not isinstance(config.get("models"), list) or not config["models"]:
+        raise RuntimeError(f"{MODEL_CONFIG_PATH.name} must contain a non-empty models array")
+
+    return config
+
+
+MODEL_CONFIG = load_model_config()
+DEFAULT_MODEL = MODEL_CONFIG.get("default_model", "claude-haiku-4-5")
+
+
+def model_entries() -> list[dict]:
+    return MODEL_CONFIG.get("models", [])
+
+
+def normalize_model_id(model: str) -> str:
+    return re.sub(r"-\d{8}$", "", model)
+
+
+def map_model(model: str) -> str:
+    normalized_model = normalize_model_id(model)
+    for entry in model_entries():
+        names = [entry.get("id"), *entry.get("aliases", [])]
+        if model in names or normalized_model in names:
+            return entry.get("backend_model", model)
+    return model
 
 
 def extract_text_from_anthropic_content(content):
@@ -60,8 +97,11 @@ def anthropic_messages_to_openai(payload: dict) -> dict:
             }
         )
 
+    requested_model = payload.get("model", DEFAULT_MODEL)
+    backend_model = map_model(requested_model)
+
     return {
-        "model": payload.get("model", "MiniMax-M2.7"),
+        "model": backend_model,
         "messages": messages,
         "max_tokens": payload.get("max_tokens", 1024),
         "temperature": payload.get("temperature", 0.7),
@@ -102,62 +142,25 @@ async def health():
         "status": "ok",
         "service": "claude-message-proxy",
         "backend": BACKEND_CHAT_URL,
+        "model_config": str(MODEL_CONFIG_PATH),
+        "default_model": DEFAULT_MODEL,
     }
 
 
 @app.get("/v1/models")
 async def models():
-    # 嘗試從後端動態獲取所有模型清單
-    models_url = BACKEND_CHAT_URL.replace("/chat/completions", "/models")
-    headers = {}
-    if BACKEND_API_KEY:
-        headers["Authorization"] = f"Bearer {BACKEND_API_KEY}"
-
-    try:
-        async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.get(models_url, headers=headers)
-        if resp.status_code == 200:
-            data = resp.json()
-            backend_models = []
-            if isinstance(data, dict) and "data" in data:
-                backend_models = [m["id"] for m in data["data"] if isinstance(m, dict) and "id" in m]
-            elif isinstance(data, list):
-                backend_models = data
-
-            # 如果設定為 ["*"] 則返回所有模型，否則使用白名單過濾
-            if SUPPORTED_MODELS and "*" not in SUPPORTED_MODELS:
-                display_models = [m for m in backend_models if m in SUPPORTED_MODELS]
-            else:
-                display_models = backend_models
-
-            return {
-                "object": "list",
-                "data": [
-                    {
-                        "id": model,
-                        "object": "model",
-                        "created": int(time.time()),
-                        "owned_by": "inner-medusa",
-                    }
-                    for model in display_models
-                ],
-            }
-    except Exception:
-        # 當無法聯絡後端時，回退到靜態白名單
-        pass
-
-    # 靜態回退處理 (排除 "*")
-    fallback_models = [m for m in SUPPORTED_MODELS if m != "*"]
     return {
         "object": "list",
         "data": [
             {
-                "id": model,
+                "id": entry["id"],
                 "object": "model",
                 "created": int(time.time()),
-                "owned_by": "inner-medusa",
+                "owned_by": entry.get("owned_by", "inner-medusa"),
+                "display_name": entry.get("display_name", entry.get("backend_model", entry["id"])),
             }
-            for model in fallback_models
+            for entry in model_entries()
+            if entry.get("id")
         ],
     }
 
@@ -171,9 +174,16 @@ async def messages(request: Request):
         )
 
     payload = await request.json()
-    model = payload.get("model", "MiniMax-M2.7")
+
+    requested_model = payload.get("model", DEFAULT_MODEL)
+    backend_model = map_model(requested_model)
 
     openai_payload = anthropic_messages_to_openai(payload)
+
+    print(
+        f"[proxy] requested_model={requested_model} backend_model={backend_model}",
+        flush=True,
+    )
 
     headers = {
         "Authorization": f"Bearer {BACKEND_API_KEY}",
@@ -194,4 +204,5 @@ async def messages(request: Request):
         )
 
     data = resp.json()
-    return JSONResponse(openai_to_anthropic(data, model))
+
+    return JSONResponse(openai_to_anthropic(data, requested_model))

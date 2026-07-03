@@ -6,26 +6,16 @@
     "no_proxy": "localhost,127.0.0.1",
     "ANTHROPIC_DEFAULT_HAIKU_MODEL": "gemma-4-31B-it",
     "ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME": "gemma-4-31B-it",
-    "ANTHROPIC_DEFAULT_OPUS_MODEL": "NVIDIA-Nemotron-3-Ultra-550B-A55B",
-    "ANTHROPIC_DEFAULT_OPUS_MODEL_NAME": "NVIDIA-Nemotron-3-Ultra-550B-A55B",
-    "ANTHROPIC_DEFAULT_SONNET_MODEL": "Mistral-Large-3-675B-Instruct-2512",
-    "ANTHROPIC_DEFAULT_SONNET_MODEL_NAME": "Mistral-Large-3-675B-Instruct-2512",
-    "ANTHROPIC_MODEL": "NVIDIA-Nemotron-3-Ultra-550B-A55B",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "Mistral-Large-3-675B-Instruct-2512",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL_NAME": "Mistral-Large-3-675B-Instruct-2512",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "NVIDIA-Nemotron-3-Ultra-550B-A55B",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL_NAME": "NVIDIA-Nemotron-3-Ultra-550B-A55B",
+    "ANTHROPIC_MODEL": "gemma-4-31B-it",
     "CLAUDE_CODE_DISABLE_THINKING": "1",
-    "LITELLM_DROP_PARAMS": "true",
     "ANTHROPIC_DISABLE_THINKING": "1",
     "CLAUDE_CODE_ENABLE_TELEMETRY": "0",
     "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
     "CLAUDE_CODE_ATTRIBUTION_HEADER": "0"
   },
-  "attribution": {
-    "commit": "",
-    "pr": ""
-  },
-  "model": "opus",
-  "promptSuggestionEnabled": false,
-  "plansDirectory": "./plans",
-  "prefersReducedMotion": true,
-  "theme": "dark",
-  "terminalProgressBarEnabled": false
+  "model": "haiku"
 }
