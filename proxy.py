@@ -107,6 +107,46 @@ def stringify_tool_result_content(content):
     return str(content)
 
 
+def anthropic_image_to_data_url(block):
+    """Anthropic image content block (base64 或 url source) -> OpenAI image_url 字串。"""
+    source = block.get("source") or {}
+    source_type = source.get("type")
+    if source_type == "base64":
+        media_type = source.get("media_type", "image/png")
+        data = source.get("data", "")
+        if data:
+            return f"data:{media_type};base64,{data}"
+    elif source_type == "url":
+        return source.get("url")
+    return None
+
+
+def anthropic_document_to_file_part(block):
+    """Anthropic document(PDF) content block -> OpenAI file content part。"""
+    source = block.get("source") or {}
+    source_type = source.get("type")
+    filename = block.get("title") or "document.pdf"
+
+    if source_type == "base64":
+        media_type = source.get("media_type", "application/pdf")
+        data = source.get("data", "")
+        if not data:
+            return None
+        return {
+            "type": "file",
+            "file": {
+                "filename": filename,
+                "file_data": f"data:{media_type};base64,{data}",
+            },
+        }
+    if source_type == "url":
+        url = source.get("url")
+        if not url:
+            return None
+        return {"type": "file", "file": {"filename": filename, "file_data": url}}
+    return None
+
+
 def convert_tools(anthropic_tools):
     """Anthropic tools -> OpenAI tools。input_schema 對應 parameters。"""
     openai_tools = []
@@ -201,12 +241,12 @@ def anthropic_messages_to_openai(payload: dict) -> dict:
                 assistant_msg["tool_calls"] = tool_calls
             messages.append(assistant_msg)
         else:
-            # 使用者回合可能含 tool_result（工具執行結果）與一般 text
-            text_parts = []
+            # 使用者回合可能含 tool_result（工具執行結果）、text 與 image
+            content_parts = []
             tool_messages = []
             for block in content:
                 if isinstance(block, str):
-                    text_parts.append(block)
+                    content_parts.append({"type": "text", "text": block})
                     continue
                 if not isinstance(block, dict):
                     continue
@@ -222,14 +262,29 @@ def anthropic_messages_to_openai(payload: dict) -> dict:
                         }
                     )
                 elif btype == "text":
-                    text_parts.append(block.get("text", ""))
+                    content_parts.append({"type": "text", "text": block.get("text", "")})
+                elif btype == "image":
+                    image_url = anthropic_image_to_data_url(block)
+                    if image_url:
+                        content_parts.append(
+                            {"type": "image_url", "image_url": {"url": image_url}}
+                        )
+                elif btype == "document":
+                    file_part = anthropic_document_to_file_part(block)
+                    if file_part:
+                        content_parts.append(file_part)
                 elif "text" in block:
-                    text_parts.append(block.get("text", ""))
+                    content_parts.append({"type": "text", "text": block.get("text", "")})
             # OpenAI 要求 tool 訊息緊接在帶 tool_calls 的 assistant 訊息之後
             messages.extend(tool_messages)
-            text = "\n".join(t for t in text_parts if t)
-            if text:
-                messages.append({"role": "user", "content": text})
+            has_media = any(p["type"] != "text" for p in content_parts)
+            if has_media:
+                if content_parts:
+                    messages.append({"role": "user", "content": content_parts})
+            else:
+                text = "\n".join(p["text"] for p in content_parts if p.get("text"))
+                if text:
+                    messages.append({"role": "user", "content": text})
 
     requested_model = payload.get("model", DEFAULT_MODEL)
     backend_model = map_model(requested_model)

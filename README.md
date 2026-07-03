@@ -14,9 +14,17 @@ Claude Code
 
 ---
 
+## 支援功能
+
+- **模型別名映射**：支援 Haiku、Sonnet、Opus 固定槽位對應後端不同的模型名稱。
+- **Tool Call (工具呼叫)**：雙向轉譯工具定義、工具使用指令及結果回傳，讓 Claude Code 能流暢執行讀寫檔案或終端指令。
+- **多模態 (Multimodal) 支援**：支援傳送圖片 (Base64/URL) 以及 PDF 文件檔給相容的後端模型。
+
+---
+
 ## 檔案說明
 
-- `proxy.py`：唯一的 Proxy 主程式，已整合模型對應邏輯與雙向 Tool Call（工具呼叫）翻譯機制。
+- `proxy.py`：唯一的 Proxy 主程式，已整合模型對應邏輯、雙向 Tool Call 翻譯機制以及多模態（圖片與 PDF 文件）傳輸支援。
 - `models_inner.json` / `models_portal.json`：模型設定檔，對外顯示後端真實模型名稱，並用 aliases 相容 Claude Code 送來的 model id。
 - `test_tool_call.py`：Tool Call 功能測試腳本，用以驗證本機 Proxy 能否正確處理雙向工具調用。
 - `.env`：本機 API key 設定，不要提交到 Git。
