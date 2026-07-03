@@ -57,9 +57,9 @@ Claude Desktop 的 **Model ID** 建議使用與 Proxy 別名 (aliases) 相容的
 
 | 順序 | Model ID            | Display name                        | Tier alias | Offer 1M-context variant | 說明                                                                |
 | -- | ------------------- | ----------------------------------- | ---------- | ------------------------ | ----------------------------------------------------------------- |
-| 1  | `claude-haiku-4-5`  | `GLM-5.2`                           | `haiku`    | 關閉                       | 作為 Haiku tier 的替代模型，實際後端模型為 `GLM-5.2`。                            |
-| 2  | `claude-sonnet-4-6` | `NVIDIA-Nemotron-3-Ultra-550B-A55B` | `sonnet`   | 關閉                       | 作為 Sonnet tier 的替代模型，實際後端模型為 `NVIDIA-Nemotron-3-Ultra-550B-A55B`。 |
-| 3  | `claude-opus-4-7`   | `Thanos3.5-397B-A17B`               | `opus`     | 關閉                       | 作為 Opus tier 的替代模型，實際後端模型為 `Thanos3.5-397B-A17B`。                 |
+| 1  | `claude-haiku-4-5`  | `MiniMax-M2.7`                      | `haiku`    | 關閉                       | 作為 Haiku tier 的替代模型，實際後端模型為 `MiniMax-M2.7`。                       |
+| 2  | `claude-sonnet-4-6` | `MiniMax-M3`                        | `sonnet`   | 關閉                       | 作為 Sonnet tier 的替代模型，實際後端模型為 `MiniMax-M3`。                        |
+| 3  | `claude-opus-4-7`   | `GLM-5.2`                           | `opus`     | 關閉                       | 作為 Opus tier 的替代模型，實際後端模型為 `GLM-5.2`。                            |
 
 ### (2) Portal 模式 (參照 `models_portal.json`)
 
@@ -115,7 +115,7 @@ def map_model(model: str) -> str:
 ### (1) Inner-Medusa 模式
 * **Gateway base URL**: `http://127.0.0.1:5000`
 * **Default model**: `claude-haiku-4-5`
-* **Default display name**: `GLM-5.2`
+* **Default display name**: `MiniMax-M2.7`
 * **Default tier alias**: `haiku`
 
 ### (2) Portal 模式

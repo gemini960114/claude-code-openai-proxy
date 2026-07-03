@@ -140,45 +140,12 @@ C:\Users\<你的使用者名稱>\.claude\settings.json
   "default_model": "GLM-5.2",
   "models": [
     {
-      "id": "GLM-5.2",
-      "backend_model": "GLM-5.2",
-      "display_name": "GLM-5.2",
-      "aliases": [
-        "haiku",
-        "claude-haiku-4-5"
-      ]
-    },
-    {
-      "id": "NVIDIA-Nemotron-3-Ultra-550B-A55B",
-      "backend_model": "NVIDIA-Nemotron-3-Ultra-550B-A55B",
-      "display_name": "NVIDIA-Nemotron-3-Ultra-550B-A55B",
-      "aliases": [
-        "sonnet",
-        "claude-sonnet-4-6"
-      ]
-    },
-    {
-      "id": "Thanos3.5-397B-A17B",
-      "backend_model": "Thanos3.5-397B-A17B",
-      "display_name": "Thanos3.5-397B-A17B",
-      "aliases": [
-        "opus",
-        "claude-opus-4-7"
-      ]
-    },
-    {
-      "id": "gemma-4-31B-it",
-      "backend_model": "gemma-4-31B-it",
-      "display_name": "gemma-4-31B-it",
-      "aliases": [
-        "gemma"
-      ]
-    },
-    {
       "id": "MiniMax-M2.7",
       "backend_model": "MiniMax-M2.7",
       "display_name": "MiniMax-M2.7",
       "aliases": [
+        "haiku",
+        "claude-haiku-4-5",
         "minimax-m2.7",
         "minimax-m2",
         "m2.7"
@@ -189,8 +156,44 @@ C:\Users\<你的使用者名稱>\.claude\settings.json
       "backend_model": "MiniMax-M3",
       "display_name": "MiniMax-M3",
       "aliases": [
+        "sonnet",
+        "claude-sonnet-4-6",
         "minimax-m3",
         "m3"
+      ]
+    },
+    {
+      "id": "GLM-5.2",
+      "backend_model": "GLM-5.2",
+      "display_name": "GLM-5.2",
+      "aliases": [
+        "opus",
+        "claude-opus-4-7"
+      ]
+    },
+    {
+      "id": "NVIDIA-Nemotron-3-Ultra-550B-A55B",
+      "backend_model": "NVIDIA-Nemotron-3-Ultra-550B-A55B",
+      "display_name": "NVIDIA-Nemotron-3-Ultra-550B-A55B",
+      "aliases": [
+        "nemotron-ultra",
+        "nemotron"
+      ]
+    },
+    {
+      "id": "Thanos3.5-397B-A17B",
+      "backend_model": "Thanos3.5-397B-A17B",
+      "display_name": "Thanos3.5-397B-A17B",
+      "aliases": [
+        "thanos"
+      ]
+    },
+    {
+      "id": "gemma-4-31B-it",
+      "backend_model": "gemma-4-31B-it",
+      "display_name": "gemma-4-31B-it",
+      "aliases": [
+        "gemma"
       ]
     }
   ]
