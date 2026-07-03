@@ -16,8 +16,9 @@ Claude Code
 
 ## 檔案說明
 
-- `proxy.py`：唯一的 Proxy 主程式，已整合原本 v1 的模型對應邏輯。
+- `proxy.py`：唯一的 Proxy 主程式，已整合模型對應邏輯與雙向 Tool Call（工具呼叫）翻譯機制。
 - `models_inner.json` / `models_portal.json`：模型設定檔，對外顯示後端真實模型名稱，並用 aliases 相容 Claude Code 送來的 model id。
+- `test_tool_call.py`：Tool Call 功能測試腳本，用以驗證本機 Proxy 能否正確處理雙向工具調用。
 - `.env`：本機 API key 設定，不要提交到 Git。
 - `start_proxy_inner.sh`：使用 Inner-Medusa endpoint 啟動。
 - `start_proxy_portal.sh`：使用 Portal endpoint 啟動。
@@ -308,6 +309,14 @@ curl -i "http://127.0.0.1:5000/v1/messages" \
   -H "Content-Type: application/json" \
   -H "anthropic-version: 2023-06-01" \
   --data-raw '{"model":"GLM-5.2","max_tokens":128,"messages":[{"role":"user","content":"hello"}]}'
+```
+
+Tool Call（工具呼叫）測試：
+
+本專案支援將 Anthropic 的 Tool 規格轉譯為 OpenAI-compatible Function Call。你可以使用根目錄下的 `test_tool_call.py` 來進行自動化的雙向對話工具呼叫測試：
+
+```bash
+.venv/bin/python test_tool_call.py
 ```
 
 啟動 Claude Code：

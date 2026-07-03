@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse
 app = FastAPI()
 
 BACKEND_API_KEY = os.environ.get("BACKEND_API_KEY", "")
+print(f"[proxy] BACKEND_API_KEY loaded: length={len(BACKEND_API_KEY)} prefix={BACKEND_API_KEY[:6]}", flush=True)
 BACKEND_CHAT_URL = os.environ.get(
     "BACKEND_CHAT_URL",
     "https://portal.genai.nchc.org.tw/api/v1/chat/completions",
@@ -19,6 +20,7 @@ BACKEND_CHAT_URL = os.environ.get(
 MODEL_CONFIG_PATH = Path(
     os.environ.get("MODEL_CONFIG_PATH", Path(__file__).with_name("models_inner.json"))
 )
+
 
 def load_model_config() -> dict:
     if not MODEL_CONFIG_PATH.exists():
@@ -54,6 +56,16 @@ def map_model(model: str) -> str:
     return model
 
 
+# OpenAI finish_reason -> Anthropic stop_reason
+STOP_REASON_MAP = {
+    "stop": "end_turn",
+    "length": "max_tokens",
+    "tool_calls": "tool_use",
+    "function_call": "tool_use",
+    "content_filter": "end_turn",
+}
+
+
 def extract_text_from_anthropic_content(content):
     if isinstance(content, str):
         return content
@@ -71,6 +83,70 @@ def extract_text_from_anthropic_content(content):
     return ""
 
 
+def stringify_tool_result_content(content):
+    """Anthropic 的 tool_result content 可為字串或區塊陣列，OpenAI 的 tool 訊息只吃字串。"""
+    if isinstance(content, str):
+        return content
+
+    if isinstance(content, list):
+        parts = []
+        for item in content:
+            if isinstance(item, str):
+                parts.append(item)
+            elif isinstance(item, dict):
+                if item.get("type") == "text":
+                    parts.append(item.get("text", ""))
+                elif item.get("type") == "image":
+                    parts.append("[image omitted]")
+                elif "text" in item:
+                    parts.append(item.get("text", ""))
+        return "\n".join(parts)
+
+    if content is None:
+        return ""
+    return str(content)
+
+
+def convert_tools(anthropic_tools):
+    """Anthropic tools -> OpenAI tools。input_schema 對應 parameters。"""
+    openai_tools = []
+    for tool in anthropic_tools or []:
+        if not isinstance(tool, dict):
+            continue
+        name = tool.get("name")
+        if not name:
+            continue
+        schema = tool.get("input_schema") or {"type": "object", "properties": {}}
+        openai_tools.append(
+            {
+                "type": "function",
+                "function": {
+                    "name": name,
+                    "description": tool.get("description", ""),
+                    "parameters": schema,
+                },
+            }
+        )
+    return openai_tools
+
+
+def convert_tool_choice(tool_choice):
+    """Anthropic tool_choice -> OpenAI tool_choice。"""
+    if tool_choice is None:
+        return None
+    if isinstance(tool_choice, dict):
+        t = tool_choice.get("type")
+        if t == "auto":
+            return "auto"
+        if t == "any":
+            return "required"
+        if t == "none":
+            return "none"
+        if t == "tool" and tool_choice.get("name"):
+            return {"type": "function", "function": {"name": tool_choice.get("name")}}
+    return None
+
+
 def anthropic_messages_to_openai(payload: dict) -> dict:
     messages = []
 
@@ -85,22 +161,80 @@ def anthropic_messages_to_openai(payload: dict) -> dict:
 
     for msg in payload.get("messages", []):
         role = msg.get("role", "user")
-        content = extract_text_from_anthropic_content(msg.get("content", ""))
+        content = msg.get("content", "")
 
-        if role not in ["system", "user", "assistant"]:
-            role = "user"
+        # 純字串內容：直接沿用
+        if isinstance(content, str):
+            out_role = role if role in ("user", "assistant") else "user"
+            messages.append({"role": out_role, "content": content})
+            continue
 
-        messages.append(
-            {
-                "role": role,
-                "content": content,
-            }
-        )
+        if not isinstance(content, list):
+            continue
+
+        if role == "assistant":
+            # 助理回合可能同時含 text 與 tool_use
+            text_parts = []
+            tool_calls = []
+            for block in content:
+                if not isinstance(block, dict):
+                    continue
+                btype = block.get("type")
+                if btype == "text":
+                    text_parts.append(block.get("text", ""))
+                elif btype == "tool_use":
+                    tool_calls.append(
+                        {
+                            "id": block.get("id", ""),
+                            "type": "function",
+                            "function": {
+                                "name": block.get("name", ""),
+                                "arguments": json.dumps(
+                                    block.get("input", {}), ensure_ascii=False
+                                ),
+                            },
+                        }
+                    )
+            text = "\n".join(t for t in text_parts if t)
+            assistant_msg = {"role": "assistant", "content": text if text else None}
+            if tool_calls:
+                assistant_msg["tool_calls"] = tool_calls
+            messages.append(assistant_msg)
+        else:
+            # 使用者回合可能含 tool_result（工具執行結果）與一般 text
+            text_parts = []
+            tool_messages = []
+            for block in content:
+                if isinstance(block, str):
+                    text_parts.append(block)
+                    continue
+                if not isinstance(block, dict):
+                    continue
+                btype = block.get("type")
+                if btype == "tool_result":
+                    tool_messages.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": block.get("tool_use_id", ""),
+                            "content": stringify_tool_result_content(
+                                block.get("content", "")
+                            ),
+                        }
+                    )
+                elif btype == "text":
+                    text_parts.append(block.get("text", ""))
+                elif "text" in block:
+                    text_parts.append(block.get("text", ""))
+            # OpenAI 要求 tool 訊息緊接在帶 tool_calls 的 assistant 訊息之後
+            messages.extend(tool_messages)
+            text = "\n".join(t for t in text_parts if t)
+            if text:
+                messages.append({"role": "user", "content": text})
 
     requested_model = payload.get("model", DEFAULT_MODEL)
     backend_model = map_model(requested_model)
 
-    return {
+    result = {
         "model": backend_model,
         "messages": messages,
         "max_tokens": payload.get("max_tokens", 1024),
@@ -108,26 +242,72 @@ def anthropic_messages_to_openai(payload: dict) -> dict:
         "stream": False,
     }
 
+    stop_sequences = payload.get("stop_sequences")
+    if stop_sequences:
+        result["stop"] = stop_sequences
+
+    tools = payload.get("tools")
+    if tools:
+        converted_tools = convert_tools(tools)
+        if converted_tools:
+            result["tools"] = converted_tools
+            tool_choice = convert_tool_choice(payload.get("tool_choice"))
+            if tool_choice is not None:
+                result["tool_choice"] = tool_choice
+
+    return result
+
 
 def openai_to_anthropic(openai_resp: dict, model: str) -> dict:
-    choice = openai_resp.get("choices", [{}])[0]
-    message = choice.get("message", {})
-    content = message.get("content", "")
+    choice = (openai_resp.get("choices") or [{}])[0]
+    message = choice.get("message", {}) or {}
+    text = message.get("content") or ""
+    tool_calls = message.get("tool_calls") or []
+    finish_reason = choice.get("finish_reason", "stop")
 
-    usage = openai_resp.get("usage", {})
+    content = []
+    if text:
+        content.append({"type": "text", "text": text})
+
+    for call in tool_calls:
+        if not isinstance(call, dict):
+            continue
+        fn = call.get("function", {}) or {}
+        raw_args = fn.get("arguments", "")
+        try:
+            if isinstance(raw_args, dict):
+                parsed_input = raw_args
+            elif isinstance(raw_args, str) and raw_args.strip():
+                parsed_input = json.loads(raw_args)
+            else:
+                parsed_input = {}
+        except (ValueError, TypeError):
+            parsed_input = {}
+        content.append(
+            {
+                "type": "tool_use",
+                "id": call.get("id") or f"toolu_{uuid.uuid4().hex}",
+                "name": fn.get("name", ""),
+                "input": parsed_input,
+            }
+        )
+
+    if not content:
+        content.append({"type": "text", "text": ""})
+
+    stop_reason = STOP_REASON_MAP.get(finish_reason, "end_turn")
+    if tool_calls:
+        stop_reason = "tool_use"
+
+    usage = openai_resp.get("usage", {}) or {}
 
     return {
         "id": f"msg_{uuid.uuid4().hex}",
         "type": "message",
         "role": "assistant",
         "model": model,
-        "content": [
-            {
-                "type": "text",
-                "text": content or "",
-            }
-        ],
-        "stop_reason": "end_turn",
+        "content": content,
+        "stop_reason": stop_reason,
         "stop_sequence": None,
         "usage": {
             "input_tokens": usage.get("prompt_tokens", 0),
@@ -198,6 +378,7 @@ async def messages(request: Request):
         )
 
     if resp.status_code >= 400:
+        print(f"[proxy] Backend error: status={resp.status_code} body={resp.text}", flush=True)
         raise HTTPException(
             status_code=resp.status_code,
             detail=resp.text,
