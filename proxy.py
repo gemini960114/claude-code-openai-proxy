@@ -435,12 +435,26 @@ def anthropic_messages_to_openai(payload: dict) -> dict:
 
     tools = payload.get("tools")
     if tools:
-        converted_tools = convert_tools(tools)
-        if converted_tools:
-            result["tools"] = converted_tools
-            tool_choice = convert_tool_choice(payload.get("tool_choice"))
-            if tool_choice is not None:
-                result["tool_choice"] = tool_choice
+        model_entry = {}
+        normalized_model = normalize_model_id(requested_model)
+        for entry in model_entries():
+            names = [entry.get("id"), *entry.get("aliases", [])]
+            if requested_model in names or normalized_model in names:
+                model_entry = entry
+                break
+
+        if model_entry.get("disable_tools"):
+            # Dropped tools for this model as configured in models_inner.json
+            pass
+        else:
+            converted_tools = convert_tools(tools)
+            if converted_tools:
+                result["tools"] = converted_tools
+                tool_choice = convert_tool_choice(payload.get("tool_choice"))
+                if tool_choice is None:
+                    tool_choice = model_entry.get("default_tool_choice")
+                if tool_choice is not None:
+                    result["tool_choice"] = tool_choice
 
     return result
 

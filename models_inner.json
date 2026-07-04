@@ -28,6 +28,8 @@
       "id": "GLM-5.2",
       "backend_model": "GLM-5.2",
       "display_name": "GLM-5.2",
+      "disable_tools": true,
+      "default_tool_choice": "auto",	  
       "aliases": [
         "opus",
         "claude-opus-4-7"
