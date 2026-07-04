@@ -17,8 +17,13 @@ Claude Code
 ## 支援功能
 
 - **模型別名映射**：支援 Haiku、Sonnet、Opus 固定槽位對應後端不同的模型名稱。
-- **Tool Call (工具呼叫)**：雙向轉譯工具定義、工具使用指令及結果回傳，讓 Claude Code 能流暢執行讀寫檔案或終端指令。
-- **多模態 (Multimodal) 支援**：支援傳送圖片 (Base64/URL) 以及 PDF 文件檔給相容的後端模型。
+- **串流 (Streaming) 支援**：支援文字與 (可選) 工具呼叫的串流傳輸，可要求後端回報 token usage，並提供標準的 Anthropic 錯誤事件格式。
+- **Tool Call (工具呼叫) 與自動降級保護**：雙向轉譯工具定義、工具使用指令及結果回傳，且具備自動調整順序之降級保護（避免後端 API 出現 400 錯誤）。
+- **多模態 (Multimodal) 支援與 PDF 降級**：支援傳送圖片 (Base64/URL)，並提供 PDF 文件傳輸及可設定的純文字降級備援機制。
+- **環境變數參數控制**：支援 `top_p` 及其他採樣參數（如 `presence_penalty`、`frequency_penalty`、`seed`、`top_k` 等）的轉發設定。
+- **全域連線池與效能最佳化**：使用共用 HTTP 客戶端連線池，提高代理轉發效能。
+- **安全隱私與豐富日誌**：API 金鑰僅記錄有無，不再洩漏金鑰前綴；錯誤日誌包含 model 資訊與 traceback。
+- **Token 估算**：支援 `/v1/messages/count_tokens` 端點估算 token 數量。
 
 ---
 
@@ -116,13 +121,13 @@ Uvicorn running on http://127.0.0.1:5000
     "ANTHROPIC_BASE_URL": "http://127.0.0.1:5000",
     "NO_PROXY": "localhost,127.0.0.1",
     "no_proxy": "localhost,127.0.0.1",
-    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "GLM-5.2",
-    "ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME": "GLM-5.2",
-    "ANTHROPIC_DEFAULT_OPUS_MODEL": "Thanos3.5-397B-A17B",
-    "ANTHROPIC_DEFAULT_OPUS_MODEL_NAME": "Thanos3.5-397B-A17B",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "MiniMax-M2.7",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME": "MiniMax-M2.7",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "GLM-5.2",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL_NAME": "GLM-5.2",
     "ANTHROPIC_DEFAULT_SONNET_MODEL": "NVIDIA-Nemotron-3-Ultra-550B-A55B",
     "ANTHROPIC_DEFAULT_SONNET_MODEL_NAME": "NVIDIA-Nemotron-3-Ultra-550B-A55B",
-    "ANTHROPIC_MODEL": "GLM-5.2",
+    "ANTHROPIC_MODEL": "MiniMax-M2.7",
     "CLAUDE_CODE_DISABLE_THINKING": "1",
     "ANTHROPIC_DISABLE_THINKING": "1",
     "CLAUDE_CODE_ENABLE_TELEMETRY": "0",
@@ -364,9 +369,13 @@ PORTAL_API_KEY="sk-..."
 
 若錯誤內容包含 nginx 403，請確認 `BACKEND_CHAT_URL` 是可用的 chat completions endpoint，不要指到 `/v1/responses`。
 
-### 畫面上沒有即時一個字一個字跑出回覆（不支援串流 Streaming）
+### 支援串流 (Streaming) 嗎？
 
-為了保持架構與格式轉換的單純，本 Proxy 目前強制關閉串流（在向後端發送請求時設定 `"stream": False`），並在獲取後端完整回應後一次性包裝回傳。因此 Claude Code 畫面上不會即時呈現打字效果，而是會在等待一段時間後一次顯示，此為正常運作現象。
+是的，本 Proxy 支援文字以及 (可選的) 工具呼叫的串流傳輸。這讓 Claude Code 能夠在終端機畫面上流暢地打字顯示回覆。您可以透過環境變數 `STREAM_TOOLS` 和 `STREAM_INCLUDE_USAGE` 微調串流時的工具呼叫與 Token 用量統計行為。
+
+### 串流錯誤格式
+
+當後端發生錯誤時，Proxy 會以 Anthropic 標準 `event: error` 事件回傳，`error.type` 會依 HTTP status 分類為 `authentication_error` / `rate_limit_error` / `invalid_request_error` / `api_error`，而非將錯誤訊息偽裝成助理文字。
 
 ---
 
